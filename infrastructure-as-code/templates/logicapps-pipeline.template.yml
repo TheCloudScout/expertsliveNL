@@ -1,0 +1,25 @@
+parameters:
+- name: deploymentNames
+  type: object
+- name: serviceConnection
+  type: string
+- name: resourceGroupName
+  type: string
+
+steps:
+# Deploy Microsoft Sentinel Playbooks
+- ${{ each deploymentName in parameters.deploymentNames }} :
+  - task: AzurePowerShell@5
+    displayName: 'Logic App "${{ deploymentName }}"'
+
+    inputs:
+      azureSubscription:      ${{ parameters.serviceConnection }}
+      ScriptType:             'FilePath'
+      ScriptPath:             'scripts/Set-LogicApp.ps1'
+      ScriptArguments:        '-ResourceGroupName "${{ parameters.ResourceGroupName }}"
+                              -LogicAppDefinitionFile "parameters/logicapps/definitions/${{ deploymentName }}.json"
+                              -LogicAppParameterFile "parameters/logicapps/${{ deploymentName }}.parameters.json"
+                              -LogicAppTemplateFile "resources/logicapps/logicApp.json"'
+      azurePowerShellVersion: 'LatestVersion'
+      pwsh:                   true
+      FailOnStandardError:    true

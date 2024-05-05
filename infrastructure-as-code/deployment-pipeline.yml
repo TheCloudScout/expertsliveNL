@@ -1,0 +1,234 @@
+ # This pipeline will deploy the resources needed for Microsoft Sentinel Cloud-SIEM
+# but also components needed for creating a hybrid setups with RSA Netwitness
+# by leveraging Azure Logic Apps and Azure Event Hub
+
+name: CloudSIEM-LogicApps
+
+# schedules:
+# - cron: "0 0 * * *"
+#   displayName: Daily midnight build
+#   branches:
+#     include:
+#     - master
+
+parameters:
+- name: env
+  displayName: Select deployment environment
+  type: string
+  default: prd-weeu
+  values:
+  - nonprd-weeu
+  - nonprd-cus
+  - nonprd-eus2
+  - prd-weeu
+  - prd-cus
+  - prd-eus2
+
+pr: none
+
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - resources/logicapps
+    - parameters/logicapps
+    - resources/managedidentities
+    - parameters/identities
+    - resources/integrationAccounts
+    - parameters/integrationAccounts
+    - resources/automationaccounts
+    - parameters/automationaccounts
+    - resources/hybridworkergroups
+    - parameters/hybridworkergroups
+
+    - scripts/New-ResourceGroup.ps1
+    - scripts/Set-ServicePrincipalAzurePermissions.ps1
+
+variables:
+  scriptResourceProvider: 'scripts/Set-ResourceGroup.ps1'
+  scriptLogicApp: 'scripts/Set-LogicApp.ps1'
+
+  # Generic
+  repositoryRef: $[ resources.repositories.self.ref ]
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: resourcegroup
+    dependsOn: []
+    # Branch is master or environment is nonprd
+    condition:  or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith('${{ parameters.env }}', 'nonprd'))
+    variables:
+      - template: parameters/environment-variables-${{ parameters.env }}.yml
+    displayName: 'LogicApps resourcegroup "${{ parameters.env }}"'
+    jobs:
+      - job: deployresourcegroup
+        displayName: Deploy logic-app resource group
+        steps:
+          #create resource group
+          - template: templates/resourcegroup-pipeline.yml
+            parameters:
+              serviceConnection:  ${{ variables.serviceConnection }}
+              subscriptionId:     ${{ variables.subscriptionId }}
+              location:           ${{ variables.location }}
+              environment:        ${{ parameters.env }}
+              deploymentNames:    [
+                                    '${{ variables.logicAppsResourceGroup }}'
+                                  ]
+
+  - stage: LogicAppsDependancies
+    dependsOn:
+    - resourcegroup
+    # Branch is master or environment is nonprd
+    condition:  or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith('${{ parameters.env }}', 'nonprd'))
+    variables:
+      - template: parameters/environment-variables-${{ parameters.env }}.yml
+
+    displayName: 'LogicApps Dependancies"${{ parameters.env }}"'
+    jobs:
+      - job: LogicAppsDependancies
+        displayName: Deploy Sentinel LogicApps Dependancies
+        steps:
+          # Create Action Group
+          - template: templates/action-group.yml
+            parameters:
+              serviceConnection:  ${{ variables.serviceConnection }}
+              subscriptionId:     ${{ variables.subscriptionId }}
+              resourceGroupName:  ${{ variables.logicAppsResourceGroup }}
+              location:           ${{ variables.location }}
+              deploymentNames:    [
+                                    'ag-logic-app-${{ parameters.env }}'
+                                  ]
+
+          # Deploy Managed Identity m365defender
+          - task: AzureResourceManagerTemplateDeployment@3
+            name: managedIdentity
+            displayName: 'Managed Identitiy M365Defender "${{ parameters.env }}"'
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: ${{ variables.serviceConnection }}
+              subscriptionId: ${{ variables.subscriptionId }}
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: ${{ variables.logicAppsResourceGroup }}
+              location: ${{ variables.location }}
+              templateLocation:  'Linked artifact'
+              csmFile: 'resources/managedidentities/userAssignedMI.json'
+              csmParametersFile: 'parameters/identities/mi-logic-m365defender-${{ parameters.env }}-01.parameters.json'
+              deploymentMode: 'Incremental'
+              deploymentOutputs: 'identitiesOutput'         
+
+  - stage: LogicApps1
+    dependsOn:
+      - LogicAppsDependancies
+      - AutomationAccounts
+      - HybridWorkerGroups
+    # Branch is master or environment is nonprd
+    condition:  or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith('${{ parameters.env }}', 'nonprd'))
+    variables:
+      - template: parameters/environment-variables-${{ parameters.env }}.yml
+
+    displayName: '[1] LogicApps "${{ parameters.env }}"'
+    jobs:
+      - job: LogicApps
+        displayName: Deploy Sentinel LogicApps
+        steps:
+
+          # Deploy Microsoft Sentinel LogicApps
+          - template: templates/logicapps-pipeline.yml
+            parameters:
+              serviceConnection:  ${{ variables.serviceConnection }}
+              resourceGroupName:  ${{ variables.logicAppsResourceGroup }}
+              deploymentNames:    [
+                                    'logic-soar-${{ parameters.env }}-resetuserpass',
+                                    'logic-soar-${{ parameters.env }}-disableuser',
+                                    'logic-defender-${{ parameters.env }}-10dayreminder',
+                                    'logic-defender-${{ parameters.env }}-dailyalerts',
+                                    'logic-defender-${{ parameters.env }}-dailycomputer',
+                                    'logic-defender-${{ parameters.env }}-dailysign',
+                                    'logic-defender-${{ parameters.env }}-weeklyscan',
+                                    'logic-defender-${{ parameters.env }}-weeklyinv',
+                                    'logic-defender-${{ parameters.env }}-sync365comments',
+                                    'logic-defender-${{ parameters.env }}-gl-tagging-dc'
+                                  ]
+
+    dependsOn:
+      - LogicAppsDependancies
+      - AutomationAccounts
+      - HybridWorkerGroups
+    # Branch is master or environment is nonprd
+    condition:  or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith('${{ parameters.env }}', 'nonprd'))
+    variables:
+      - template: parameters/environment-variables-${{ parameters.env }}.yml
+
+  - stage: LogicAppsPermissions
+    dependsOn:
+      - LogicApps1
+      - LogicApps2
+      - LogicApps3
+      - LogicApps4
+    # Branch is master or environment is nonprd
+    condition:  or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith('${{ parameters.env }}', 'nonprd'))
+    variables:
+      - template: parameters/environment-variables-${{ parameters.env }}.yml
+
+    displayName: 'LogicApps Permissions "${{ parameters.env }}"'
+    jobs:
+      - job: AssignPermissions
+        displayName: 'RBAC permissions'
+        steps:
+          # Assign Managed Identities permissions
+          - task: AzurePowerShell@5
+            name: AssignPermissions
+
+            inputs:
+              azureSubscription:      ${{ variables.serviceConnection }}
+              ScriptType:             'FilePath'
+              ScriptPath:             'scripts/Set-ServicePrincipalAzurePermissions.ps1'
+              ScriptArguments:        '-SourceResourceGroupName "${{ variables.logicAppsResourceGroup }}"
+                                      -TargetResourceGroupName "${{ variables.sentinelResourceGroup }}"
+                                      -AzureRole "Microsoft Sentinel Responder"
+                                      -AllResources $true'
+
+              errorActionPreference:  'continue'
+              azurePowerShellVersion: 'LatestVersion'
+              pwsh: true
+            
+          - task: AzurePowerShell@5
+            name: AssignPermissionsLogIngestion
+
+            inputs:
+              azureSubscription:      ${{ variables.serviceConnection }}
+              ScriptType:             'FilePath'
+              ScriptPath:             'scripts/Set-ServicePrincipalAzurePermissions.ps1'
+              ScriptArguments:        '-SourceResourceGroupName "${{ variables.logicAppsResourceGroup }}"
+                                      -TargetResourceGroupName "${{ variables.dcrResourceGroup }}"
+                                      -AzureRole "Monitoring Metrics Publisher"
+                                      -AppName "logic-sent-${{ parameters.env }}-azurebilling-01"
+                                      -AllResources $false'
+
+              errorActionPreference:  'continue'
+              azurePowerShellVersion: 'LatestVersion'
+              pwsh: true
+
+      - job: AssignPermissionsResetPassword
+        displayName: 'RBAC permissions for on-prem pass reset'
+        steps:
+          # Assign Managed Identities permissions
+          - task: AzurePowerShell@5
+            name: AssignPermissions
+
+            inputs:
+              azureSubscription:      ${{ variables.serviceConnection }}
+              ScriptType:             'FilePath'
+              ScriptPath:             'scripts/Set-ServicePrincipalAzurePermissions.ps1'
+              ScriptArguments:        '-TargetResourceGroupName "${{ variables.monitoringResourceGroup }}"
+                                      -AzureRole "contributor"
+                                      -AppName "logic-soar-${{ parameters.env }}-resetuserpass-01"'
+                                      -AllResources $false
+
+              errorActionPreference:  'continue'
+              azurePowerShellVersion: 'LatestVersion'
+              pwsh: true

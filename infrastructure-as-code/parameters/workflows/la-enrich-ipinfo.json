@@ -1,0 +1,875 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Add_all_IP_details_as_comment_to_incident": {
+                "inputs": {
+                    "body": {
+                        "incidentArmId": "@triggerBody()?['object']?['id']",
+                        "message": "<p>@{concat(    variables('resultsSuccess'), '<br><br><b>Failed lookups:</b><br>', variables('resultsFailed'))}</p>"
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "path": "/Incidents/Comment"
+                },
+                "runAfter": {
+                    "For_each": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Entities_-_Get_IPs": {
+                "inputs": {
+                    "body": "@triggerBody()?['object']?['properties']?['relatedEntities']",
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "path": "/entities/ip"
+                },
+                "runAfter": {},
+                "type": "ApiConnection"
+            },
+            "For_each": {
+                "actions": {
+                    "Retrieve_from_IPinfo": {
+                        "actions": {
+                            "Condition": {
+                                "actions": {
+                                    "Append_bogon_to_string_resultsSuccess": {
+                                        "inputs": {
+                                            "name": "resultsSuccess",
+                                            "value": "@outputs('Compose_IPinfo_bogon_html')"
+                                        },
+                                        "runAfter": {
+                                            "Compose_IPinfo_bogon_html": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "AppendToStringVariable"
+                                    },
+                                    "Compose_IPinfo_bogon_html": {
+                                        "inputs": "@concat('<table><tr><td>IP</td><td>',body('Parse_JSON_-_IPinfo_output')?['ip'],'</td></tr><tr><td>Bogon</td><td>','true','</td></tr></table><br>')",
+                                        "type": "Compose"
+                                    }
+                                },
+                                "else": {
+                                    "actions": {
+                                        "Append_to_string_resultsSuccess": {
+                                            "inputs": {
+                                                "name": "resultsSuccess",
+                                                "value": "@outputs('Compose_IPinfo_html')"
+                                            },
+                                            "runAfter": {
+                                                "Compose_IPinfo_html": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "AppendToStringVariable"
+                                        },
+                                        "Compose_IPinfo_html": {
+                                            "inputs": "@concat('<table><tr><td>Country</td><td>',body('Parse_JSON_-_IPinfo_output')?['country'],'</td></tr><tr><td>ASN</td><td>',body('Parse_JSON_-_IPinfo_output')?['asn']?['name'],'</td></tr><tr><td>Domain</td><td>',body('Parse_JSON_-_IPinfo_output')?['asn']?['domain'],'</td></tr><tr><td>Route</td><td>',body('Parse_JSON_-_IPinfo_output')?['asn']?['route'],'</td></tr><tr><td>VPN</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['vpn'],'</td></tr><tr><td>Proxy</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['proxy'],'</td></tr><tr><td>Tor</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['tor'],'</td></tr><tr><td>Relay</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['relay'],'</td></tr><tr><td>Hosting</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['hosting'],'</td></tr><tr><td>Service</td><td>',body('Parse_JSON_-_IPinfo_output')?['privacy']?['service'],'</td></tr></table><br>')",
+                                            "type": "Compose"
+                                        }
+                                    }
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "equals": [
+                                                "@body('HTTP_-_Query_IPinfo')?['bogon']",
+                                                true
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Parse_JSON_-_IPinfo_output": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "HTTP_-_Query_IPinfo": {
+                                "inputs": {
+                                    "authentication": {
+                                        "type": "Raw",
+                                        "value": "Bearer @{body('Get_API_key_IPinfo')?['value']}"
+                                    },
+                                    "method": "GET",
+                                    "uri": "https://ipinfo.io/@{items('For_each')?['address']}/json"
+                                },
+                                "runtimeConfiguration": {
+                                    "contentTransfer": {
+                                        "transferMode": "Chunked"
+                                    }
+                                },
+                                "type": "Http"
+                            },
+                            "Parse_JSON_-_IPinfo_output": {
+                                "inputs": {
+                                    "content": "@body('HTTP_-_Query_IPinfo')",
+                                    "schema": {
+                                        "properties": {
+                                            "asn": {
+                                                "properties": {
+                                                    "asn": {
+                                                        "type": "string"
+                                                    },
+                                                    "domain": {
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "route": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "city": {
+                                                "type": "string"
+                                            },
+                                            "country": {
+                                                "type": "string"
+                                            },
+                                            "ip": {
+                                                "type": "string"
+                                            },
+                                            "loc": {
+                                                "type": "string"
+                                            },
+                                            "postal": {
+                                                "type": "string"
+                                            },
+                                            "privacy": {
+                                                "properties": {
+                                                    "hosting": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "proxy": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "relay": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "service": {
+                                                        "type": "string"
+                                                    },
+                                                    "tor": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "vpn": {
+                                                        "type": "boolean"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "region": {
+                                                "type": "string"
+                                            },
+                                            "timezone": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "runAfter": {
+                                    "HTTP_-_Query_IPinfo": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ParseJson"
+                            }
+                        },
+                        "runAfter": {
+                            "Retrieve_from_abuseIPDB": [
+                                "Succeeded",
+                                "TimedOut",
+                                "Skipped",
+                                "Failed"
+                            ]
+                        },
+                        "type": "Scope"
+                    },
+                    "Retrieve_from_abuseIPDB": {
+                        "actions": {
+                            "API_call_to_abuseIPDB": {
+                                "inputs": {
+                                    "headers": {
+                                        "Content-Type": "application/json",
+                                        "Key": "@{body('Get_API_key_abuseIPDB')?['value']}"
+                                    },
+                                    "method": "GET",
+                                    "queries": {
+                                        "ipAddress": "@{items('For_each')?['address']}",
+                                        "maxAgeInDays": "@{variables('maxAgeInDays')}",
+                                        "verbose": ""
+                                    },
+                                    "uri": "https://api.abuseipdb.com/api/v2/check"
+                                },
+                                "runtimeConfiguration": {
+                                    "contentTransfer": {
+                                        "transferMode": "Chunked"
+                                    }
+                                },
+                                "type": "Http"
+                            },
+                            "Append_abuseIPDB_html_string_resultsSuccess": {
+                                "inputs": {
+                                    "name": "resultsSuccess",
+                                    "value": "@outputs('Compose_abuseipDB_html')"
+                                },
+                                "runAfter": {
+                                    "Compose_abuseipDB_html": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "AppendToStringVariable"
+                            },
+                            "Append_to_string_variable": {
+                                "inputs": {
+                                    "name": "resultsFailed",
+                                    "value": "@items('For_each')"
+                                },
+                                "runAfter": {
+                                    "API_call_to_abuseIPDB": [
+                                        "TimedOut",
+                                        "Skipped",
+                                        "Failed"
+                                    ]
+                                },
+                                "type": "AppendToStringVariable"
+                            },
+                            "Check_if_'reports'_has_any_items": {
+                                "actions": {
+                                    "Compose_array_with_all_category_titles": {
+                                        "inputs": "@string(variables('parsed-api-response-all-category-titles'))",
+                                        "runAfter": {
+                                            "For_each_unique_category_id": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Compose"
+                                    },
+                                    "Filter_out_duplicate_ids": {
+                                        "inputs": "@union(variables('parsed-api-response-all-category-ids'),variables('parsed-api-response-all-category-ids'))",
+                                        "runAfter": {
+                                            "For_each_report_in_response": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Compose"
+                                    },
+                                    "For_each_report_in_response": {
+                                        "actions": {
+                                            "For_each_category_in_report": {
+                                                "actions": {
+                                                    "Append_to_array_parsed-api-response-all-category-ids": {
+                                                        "inputs": {
+                                                            "name": "parsed-api-response-all-category-ids",
+                                                            "value": "@items('For_each_category_in_report')"
+                                                        },
+                                                        "type": "AppendToArrayVariable"
+                                                    }
+                                                },
+                                                "foreach": "@items('For_each_report_in_response')?['categories']",
+                                                "type": "Foreach"
+                                            }
+                                        },
+                                        "foreach": "@outputs('Pull_only_''reports''_array_from_response')",
+                                        "runAfter": {
+                                            "Pull_only_'reports'_array_from_response": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Foreach"
+                                    },
+                                    "For_each_unique_category_id": {
+                                        "actions": {
+                                            "Append_category_title_to_array_parsed-api-response-all-category-titles": {
+                                                "inputs": {
+                                                    "name": "parsed-api-response-all-category-titles",
+                                                    "value": "@body('Find_category_id_in_documentation_(pull_titles)')[0]?['Title']"
+                                                },
+                                                "runAfter": {
+                                                    "Find_category_id_in_documentation_(pull_titles)": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "AppendToArrayVariable"
+                                            },
+                                            "Find_category_id_in_documentation_(pull_titles)": {
+                                                "inputs": {
+                                                    "from": "@variables('abuseIPDB-categories')",
+                                                    "where": "@contains(item().ID,string(items('For_each_unique_category_id')))"
+                                                },
+                                                "type": "Query"
+                                            }
+                                        },
+                                        "foreach": "@outputs('Filter_out_duplicate_ids')",
+                                        "runAfter": {
+                                            "Filter_out_duplicate_ids": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Foreach"
+                                    },
+                                    "Pull_only_'reports'_array_from_response": {
+                                        "inputs": "@body('Parse_abuseIPDB_api_response')?['data']?['reports']",
+                                        "type": "Compose"
+                                    }
+                                },
+                                "else": {
+                                    "actions": {}
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "greater": [
+                                                "@length(body('Parse_abuseIPDB_api_response')?['data']?['reports'])",
+                                                0
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "Parse_abuseIPDB_api_response": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "Clear_variable_parsed-api-response-all-category-ids": {
+                                "inputs": {
+                                    "name": "parsed-api-response-all-category-ids",
+                                    "value": "@null"
+                                },
+                                "runAfter": {
+                                    "Check_if_'reports'_has_any_items": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "Clear_variable_parsed-api-response-all-category-titles": {
+                                "inputs": {
+                                    "name": "parsed-api-response-all-category-titles",
+                                    "value": "@null"
+                                },
+                                "runAfter": {
+                                    "Clear_variable_parsed-api-response-all-category-ids": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "Compose_abuseipDB_html": {
+                                "inputs": "@concat('<table><tr><td>IP</td><td><b>',items('For_each')?['address'],'</b></td></tr><tr><td>Reputation</td><td>',outputs('Compose_confidence_score_text'),'</td></tr><tr><td>Categories</td><td>',variables('parsed-api-response-all-category-titles'),'</td></tr></table><br><br>')",
+                                "runAfter": {
+                                    "Check_if_'reports'_has_any_items": [
+                                        "Succeeded"
+                                    ],
+                                    "Compose_confidence_score_text": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose"
+                            },
+                            "Compose_confidence_score_text": {
+                                "inputs": "@concat('<p>Abuse confidence is <b>',body('Parse_abuseIPDB_api_response')?['data']?['abuseConfidenceScore'],'%</b> based on <b>',body('Parse_abuseIPDB_api_response')?['data']?['totalReports'],' reports</b> from <b>',body('Parse_abuseIPDB_api_response')?['data']?['numDistinctUsers'],' users</b> in the last <b>',variables('maxAgeInDays'),' days</b>.</p>')",
+                                "runAfter": {
+                                    "Parse_abuseIPDB_api_response": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Compose"
+                            },
+                            "Parse_abuseIPDB_api_response": {
+                                "inputs": {
+                                    "content": "@body('API_call_to_abuseIPDB')",
+                                    "schema": {
+                                        "properties": {
+                                            "body": {
+                                                "properties": {
+                                                    "data": {
+                                                        "properties": {
+                                                            "abuseConfidenceScore": {
+                                                                "type": "integer"
+                                                            },
+                                                            "countryCode": {
+                                                                "type": "string"
+                                                            },
+                                                            "countryName": {
+                                                                "type": "string"
+                                                            },
+                                                            "domain": {
+                                                                "type": "string"
+                                                            },
+                                                            "hostnames": {
+                                                                "items": {
+                                                                    "type": "string"
+                                                                },
+                                                                "type": "array"
+                                                            },
+                                                            "ipAddress": {
+                                                                "type": "string"
+                                                            },
+                                                            "ipVersion": {
+                                                                "type": "integer"
+                                                            },
+                                                            "isPublic": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "isTor": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "isWhitelisted": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "isp": {
+                                                                "type": "string"
+                                                            },
+                                                            "lastReportedAt": {
+                                                                "type": "string"
+                                                            },
+                                                            "numDistinctUsers": {
+                                                                "type": "integer"
+                                                            },
+                                                            "reports": {
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "categories": {
+                                                                            "items": {
+                                                                                "type": "integer"
+                                                                            },
+                                                                            "type": "array"
+                                                                        },
+                                                                        "comment": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "reportedAt": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "reporterCountryCode": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "reporterCountryName": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "reporterId": {
+                                                                            "type": "integer"
+                                                                        }
+                                                                    },
+                                                                    "required": [
+                                                                        "reportedAt",
+                                                                        "comment",
+                                                                        "categories",
+                                                                        "reporterId",
+                                                                        "reporterCountryCode",
+                                                                        "reporterCountryName"
+                                                                    ],
+                                                                    "type": "object"
+                                                                },
+                                                                "type": "array"
+                                                            },
+                                                            "totalReports": {
+                                                                "type": "integer"
+                                                            },
+                                                            "usageType": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "headers": {
+                                                "properties": {
+                                                    "Alt-Svc": {
+                                                        "type": "string"
+                                                    },
+                                                    "CF-Cache-Status": {
+                                                        "type": "string"
+                                                    },
+                                                    "CF-RAY": {
+                                                        "type": "string"
+                                                    },
+                                                    "Cache-Control": {
+                                                        "type": "string"
+                                                    },
+                                                    "Connection": {
+                                                        "type": "string"
+                                                    },
+                                                    "Content-Type": {
+                                                        "type": "string"
+                                                    },
+                                                    "Date": {
+                                                        "type": "string"
+                                                    },
+                                                    "NEL": {
+                                                        "type": "string"
+                                                    },
+                                                    "Report-To": {
+                                                        "type": "string"
+                                                    },
+                                                    "Server": {
+                                                        "type": "string"
+                                                    },
+                                                    "Transfer-Encoding": {
+                                                        "type": "string"
+                                                    },
+                                                    "X-RateLimit-Limit": {
+                                                        "type": "string"
+                                                    },
+                                                    "X-RateLimit-Remaining": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "statusCode": {
+                                                "type": "integer"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "runAfter": {
+                                    "API_call_to_abuseIPDB": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "ParseJson"
+                            }
+                        },
+                        "type": "Scope"
+                    }
+                },
+                "foreach": "@body('Entities_-_Get_IPs')?['IPs']",
+                "runAfter": {
+                    "Entities_-_Get_IPs": [
+                        "Succeeded"
+                    ],
+                    "Get_API_key_IPinfo": [
+                        "Succeeded"
+                    ],
+                    "Initialize_variable_-_resultsFailed": [
+                        "Succeeded"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "concurrency": {
+                        "repetitions": 1
+                    }
+                },
+                "type": "Foreach"
+            },
+            "Get_API_key_IPinfo": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('ipinfo-api-key')}/value"
+                },
+                "runAfter": {
+                    "Get_API_key_abuseIPDB": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "Get_API_key_abuseIPDB": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('abuseIPDBkey')}/value"
+                },
+                "runAfter": {},
+                "type": "ApiConnection"
+            },
+            "Initialize_variable_-_resultsFailed": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "resultsFailed",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_-_resultsSuccess": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_-_resultsSuccess": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "resultsSuccess",
+                            "type": "string",
+                            "value": "<b>Powered by:</b><br><img src=\"https://website-cdn.ipinfo.io/_next/static/media/logo-positive.0a4ba892.svg\" alt=\"IPinfo logo\" width=\"120\"/><b><font size=\"+2\">   &   </font></b><img src=\"https://www.abuseipdb.com/img/abuseipdb.png.pagespeed.ce.CI8T6WsXU7.png\" alt=\"IPinfo logo\" width=\"160\"/>\n<style>table, td { padding: 15px; border: 1px solid black; border-collapse: collapse; }</style>"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_parsed-api-response-all-category-titles": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_abuseIPDB-categories": {
+                "description": "This overview is pulled from abuseIPDs documentation https://www.abuseipdb.com/categories",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "abuseIPDB-categories",
+                            "type": "array",
+                            "value": [
+                                {
+                                    "Description": "Altering DNS records resulting in improper redirection.",
+                                    "ID": "1",
+                                    "Title": "DNS Compromise"
+                                },
+                                {
+                                    "Description": "Falsifying domain server cache (cache poisoning).",
+                                    "ID": "2",
+                                    "Title": "DNS Poisoning"
+                                },
+                                {
+                                    "Description": "Fraudulent orders.",
+                                    "ID": "3",
+                                    "Title": "Fraud Orders"
+                                },
+                                {
+                                    "Description": "Participating in distributed denial-of-service (usually part of botnet).",
+                                    "ID": "4",
+                                    "Title": "DDoS Attack"
+                                },
+                                {
+                                    "Description": "",
+                                    "ID": "5",
+                                    "Title": "FTP Brute-Force"
+                                },
+                                {
+                                    "Description": "Oversized IP packet.",
+                                    "ID": "6",
+                                    "Title": "Ping of Death"
+                                },
+                                {
+                                    "Description": "Phishing websites and/or email.",
+                                    "ID": "7",
+                                    "Title": "Phishing"
+                                },
+                                {
+                                    "Description": "",
+                                    "ID": "8",
+                                    "Title": "Fraud VoIP"
+                                },
+                                {
+                                    "Description": "Open proxy, open relay, or Tor exit node.",
+                                    "ID": "9",
+                                    "Title": "Open Proxy"
+                                },
+                                {
+                                    "Description": "Comment/forum spam, HTTP referer spam, or other CMS spam.",
+                                    "ID": "10",
+                                    "Title": "Web Spam"
+                                },
+                                {
+                                    "Description": "Spam email content, infected attachments, and phishing emails. Note: Limit comments to only relevent information (instead of log dumps) and be sure to remove PII if you want to remain anonymous.",
+                                    "ID": "11",
+                                    "Title": "Email Spam"
+                                },
+                                {
+                                    "Description": "CMS blog comment spam.",
+                                    "ID": "12",
+                                    "Title": "Blog Spam"
+                                },
+                                {
+                                    "Description": "Conjunctive category.",
+                                    "ID": "13",
+                                    "Title": "VPN IP"
+                                },
+                                {
+                                    "Description": "Scanning for open ports and vulnerable services.",
+                                    "ID": "14",
+                                    "Title": "Port Scan"
+                                },
+                                {
+                                    "Description": "",
+                                    "ID": "15",
+                                    "Title": "Hacking"
+                                },
+                                {
+                                    "Description": "Attempts at SQL injection.",
+                                    "ID": "16",
+                                    "Title": "SQL Injection"
+                                },
+                                {
+                                    "Description": "Email sender spoofing.",
+                                    "ID": "17",
+                                    "Title": "Spoofing"
+                                },
+                                {
+                                    "Description": "Credential brute-force attacks on webpage logins and services like SSH, FTP, SIP, SMTP, RDP, etc. This category is seperate from DDoS attacks.",
+                                    "ID": "18",
+                                    "Title": "Brute-Force"
+                                },
+                                {
+                                    "Description": "Webpage scraping (for email addresses, content, etc) and crawlers that do not honor robots.txt. Excessive requests and user agent spoofing can also be reported here.",
+                                    "ID": "19",
+                                    "Title": "Bad Web Bot"
+                                },
+                                {
+                                    "Description": "Host is likely infected with malware and being used for other attacks or to host malicious content. The host owner may not be aware of the compromise. This category is often used in combination with other attack categories.",
+                                    "ID": "20",
+                                    "Title": "Exploited Host"
+                                },
+                                {
+                                    "Description": "Attempts to probe for or exploit installed web applications such as a CMS like WordPress/Drupal, e-commerce solutions, forum software, phpMyAdmin and various other software plugins/solutions.",
+                                    "ID": "21",
+                                    "Title": "Web App Attack"
+                                },
+                                {
+                                    "Description": "Secure Shell (SSH) abuse. Use this category in combination with more specific categories.",
+                                    "ID": "22",
+                                    "Title": "SSH"
+                                },
+                                {
+                                    "Description": "Abuse was targeted at an \"Internet of Things\" type device. Include information about what type of device was targeted in the comments.",
+                                    "ID": "23",
+                                    "Title": "IoT Targeted"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_maxAgeInDays_for_API_call": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_maxAgeInDays_for_API_call": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "maxAgeInDays",
+                            "type": "float",
+                            "value": 7
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_parsed-api-response-all-category-ids": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "parsed-api-response-all-category-ids",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_abuseIPDB-categories": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_parsed-api-response-all-category-titles": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "parsed-api-response-all-category-titles",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_parsed-api-response-all-category-ids": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "Microsoft_Sentinel_incident": {
+                "inputs": {
+                    "body": {
+                        "callback_url": "@{listCallbackUrl()}"
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "path": "/incident-creation"
+                },
+                "type": "ApiConnectionWebhook"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azuresentinel": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/azuresentinel",
+                    "connectionName": "azuresentinel",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    },
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/azuresentinel"
+                },
+                "keyvault": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/keyvault",
+                    "connectionName": "keyvault",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    },
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/keyvault"
+                }
+            }
+        }
+    }
+}

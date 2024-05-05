@@ -1,0 +1,117 @@
+[
+  {
+    "ID": "1",
+    "Description": "Altering DNS records resulting in improper redirection.",
+    "Title": "DNS Compromise"
+  },
+  {
+    "ID": "2",
+    "Description": "Falsifying domain server cache (cache poisoning).",
+    "Title": "DNS Poisoning"
+  },
+  {
+    "ID": "3",
+    "Description": "Fraudulent orders.",
+    "Title": "Fraud Orders"
+  },
+  {
+    "ID": "4",
+    "Description": "Participating in distributed denial-of-service (usually part of botnet).",
+    "Title": "DDoS Attack"
+  },
+  {
+    "ID": "5",
+    "Description": "",
+    "Title": "FTP Brute-Force"
+  },
+  {
+    "ID": "6",
+    "Description": "Oversized IP packet.",
+    "Title": "Ping of Death"
+  },
+  {
+    "ID": "7",
+    "Description": "Phishing websites and/or email.",
+    "Title": "Phishing"
+  },
+  {
+    "ID": "8",
+    "Description": "",
+    "Title": "Fraud VoIP"
+  },
+  {
+    "ID": "9",
+    "Description": "Open proxy, open relay, or Tor exit node.",
+    "Title": "Open Proxy"
+  },
+  {
+    "ID": "10",
+    "Description": "Comment/forum spam, HTTP referer spam, or other CMS spam.",
+    "Title": "Web Spam"
+  },
+  {
+    "ID": "11",
+    "Description": "Spam email content, infected attachments, and phishing emails. Note: Limit comments to only relevent information (instead of log dumps) and be sure to remove PII if you want to remain anonymous.",
+    "Title": "Email Spam"
+  },
+  {
+    "ID": "12",
+    "Description": "CMS blog comment spam.",
+    "Title": "Blog Spam"
+  },
+  {
+    "ID": "13",
+    "Description": "Conjunctive category.",
+    "Title": "VPN IP"
+  },
+  {
+    "ID": "14",
+    "Description": "Scanning for open ports and vulnerable services.",
+    "Title": "Port Scan"
+  },
+  {
+    "ID": "15",
+    "Description": "",
+    "Title": "Hacking"
+  },
+  {
+    "ID": "16",
+    "Description": "Attempts at SQL injection.",
+    "Title": "SQL Injection"
+  },
+  {
+    "ID": "17",
+    "Description": "Email sender spoofing.",
+    "Title": "Spoofing"
+  },
+  {
+    "ID": "18",
+    "Description": "Credential brute-force attacks on webpage logins and services like SSH, FTP, SIP, SMTP, RDP, etc. This category is seperate from DDoS attacks.",
+    "Title": "Brute-Force"
+  },
+  {
+    "ID": "19",
+    "Description": "Webpage scraping (for email addresses, content, etc) and crawlers that do not honor robots.txt. Excessive requests and user agent spoofing can also be reported here.",
+    "Title": "Bad Web Bot"
+  },
+  {
+    "ID": "20",
+    "Description": "Host is likely infected with malware and being used for other attacks or to host malicious content. The host owner may not be aware of the compromise. This category is often used in combination with other attack categories.",
+    "Title": "Exploited Host"
+  },
+  {
+    "ID": "21",
+    "Description": "Attempts to probe for or exploit installed web applications such as a CMS like WordPress/Drupal, e-commerce solutions, forum software, phpMyAdmin and various other software plugins/solutions.",
+    "Title": "Web App Attack"
+  },
+  {
+    "ID": "22",
+    "Description": "Secure Shell (SSH) abuse. Use this category in combination with more specific categories.",
+    "Title": "SSH"
+  },
+  {
+    "ID": "23",
+    "Description": "Abuse was targeted at an \"Internet of Things\" type device. Include information about what type of device was targeted in the comments.",
+    "Title": "IoT Targeted"
+  }
+]

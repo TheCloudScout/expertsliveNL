@@ -1,0 +1,77 @@
+{
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "actions": [
+        {
+            "title": "Submit",
+            "type": "Action.Submit"
+        }
+    ],
+    "body": [
+        {
+            "horizontalAlignment": "Left",
+            "size": "Medium",
+            "text": "Automated Investigation | Incident @{triggerBody()?['object']?['properties']?['incidentNumber']}",
+            "type": "TextBlock",
+            "weight": "bolder",
+            "wrap": true
+        },
+        {
+            "text": "Hi team, I've initiated an automated investigation for device: @{items('For_each')?['HostName']}. Collection of the investigation package has begun. As soon as it's finished, I'll post the download link here. In the meantime you might want to consider taking additional steps:",
+            "type": "TextBlock",
+            "wrap": true
+        },
+        {
+            "text": " ",
+            "type": "TextBlock",
+            "wrap": true
+        },
+        {
+            "choices": [
+                {
+                    "title": "Run thor-lite scan",
+                    "value": "runThorLite"
+                },
+                {
+                    "title": "Backup all event logs",
+                    "value": "backupEvents"
+                },
+                {
+                    "title": "Capture memory dump",
+                    "value": "memoryDump"
+                }
+            ],
+            "id": "tasks",
+            "isMultiSelect": true,
+            "separator": true,
+            "style": "expanded",
+            "type": "Input.ChoiceSet"
+        },
+        {
+            "choices": [
+                {
+                    "title": "Isolate device",
+                    "value": "isolateDevice"
+                }
+            ],
+            "id": "isolation",
+            "isMultiSelect": true,
+            "separator": false,
+            "style": "expanded",
+            "type": "Input.ChoiceSet"
+        },
+        {
+            "text": "_(Device isolation step will be performed last to ensure earlier tasks are completed)_",
+            "type": "TextBlock",
+            "wrap": true,
+            "separator": false
+        },
+        {
+            "text": " ",
+            "type": "TextBlock",
+            "wrap": true,
+            "separator": true
+        }
+    ],
+    "type": "AdaptiveCard",
+    "version": "1.0"
+}

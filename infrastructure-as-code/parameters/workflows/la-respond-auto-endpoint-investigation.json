@@ -1,0 +1,1579 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "For_each_device": {
+                "actions": {
+                    "Collect_device_investigation_package": {
+                        "actions": {
+                            "Actions_-_Collect_investigation_package": {
+                                "description": "Retrieve a standard Defender Investigation Package. A link for download will be provided in Teams chat later.",
+                                "inputs": {
+                                    "body": {
+                                        "Comment": "@{triggerBody()?['object']?['properties']?['incidentNumber']}"
+                                    },
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                        }
+                                    },
+                                    "method": "post",
+                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/collectInvestigationPackage"
+                                },
+                                "type": "ApiConnection"
+                            },
+                            "Post_error_message_in_a_chat_(investigation)": {
+                                "description": "If for some reason the task would fail to fun, we want to let the people in Teams chat know about this.",
+                                "inputs": {
+                                    "body": {
+                                        "messageBody": "<p>⚠️ Collect Investigation package | Something went wrong :-(</p>",
+                                        "recipient": "@body('Create_a_chat')?['id']"
+                                    },
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                        }
+                                    },
+                                    "method": "post",
+                                    "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                },
+                                "runAfter": {
+                                    "Actions_-_Collect_investigation_package": [
+                                        "TimedOut",
+                                        "Skipped",
+                                        "Failed"
+                                    ]
+                                },
+                                "type": "ApiConnection"
+                            },
+                            "Set_machineActionStatus": {
+                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                "inputs": {
+                                    "name": "machineActionStatus-investigation",
+                                    "value": "@body('Actions_-_Collect_investigation_package')?['status']"
+                                },
+                                "runAfter": {
+                                    "Actions_-_Collect_investigation_package": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "SetVariable"
+                            },
+                            "Until_-_investigation_package_is_completed": {
+                                "actions": {
+                                    "Actions_-_Get_single_machine_action": {
+                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                        "inputs": {
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                }
+                                            },
+                                            "method": "get",
+                                            "path": "/api/machineactions/@{encodeURIComponent(body('Actions_-_Collect_investigation_package')?['id'])}"
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "If_investigation_package_is_completed": {
+                                        "actions": {
+                                            "Actions_-_Get_investigation_package_download_URI": {
+                                                "description": "With the job completed we can now retrieve the download URI to be posted in Teams chat to retrieve the results.",
+                                                "inputs": {
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "get",
+                                                    "path": "/api/machineactions/@{encodeURIComponent(body('Actions_-_Get_single_machine_action')?['id'])}/getPackageUri"
+                                                },
+                                                "runAfter": {
+                                                    "Set_machineActionStatus_to_succeeded": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Post_download_URI_in_chat": {
+                                                "description": "Post download link with job results in Teams chat.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "messageBody": "<b>Investigation package completed!</b><br>Download it <a href='@{body('Actions_-_Get_investigation_package_download_URI')?['value']}'>HERE</a>.",
+                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                                },
+                                                "runAfter": {
+                                                    "Actions_-_Get_investigation_package_download_URI": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Set_machineActionStatus_to_succeeded": {
+                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-investigation",
+                                                    "value": "Succeeded"
+                                                },
+                                                "type": "SetVariable"
+                                            }
+                                        },
+                                        "description": "Check from the last run status if the job has completed or not.",
+                                        "else": {
+                                            "actions": {
+                                                "Wait_for_investigation_package_to_complete": {
+                                                    "description": "Delay / wait for 30 seconds before retrieving the machineActionStatus again.",
+                                                    "inputs": {
+                                                        "interval": {
+                                                            "count": 30,
+                                                            "unit": "Second"
+                                                        }
+                                                    },
+                                                    "type": "Wait"
+                                                }
+                                            }
+                                        },
+                                        "expression": {
+                                            "and": [
+                                                {
+                                                    "equals": [
+                                                        "@body('Actions_-_Get_single_machine_action')?['status']",
+                                                        "Succeeded"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        "runAfter": {
+                                            "Actions_-_Get_single_machine_action": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "If"
+                                    }
+                                },
+                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                "expression": "@equals(variables('machineActionStatus-investigation'), 'Succeeded')",
+                                "limit": {
+                                    "count": 60,
+                                    "timeout": "PT1H"
+                                },
+                                "runAfter": {
+                                    "Set_machineActionStatus": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Until"
+                            }
+                        },
+                        "description": "This is a 'scope' object and purely serves as a way to esthetically groups certain tasks together. It also makes it easier to move around a set of tasks if needed.",
+                        "runAfter": {
+                            "Create_a_chat": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Scope"
+                    },
+                    "Compose_adaptive_card_body": {
+                        "description": "A custom 'adaptive card' will ask the users on Teams which investigations should be run on the remote endpoint. Based on the response the playbook will continue with the relevant tasks. Edit and preview these adaptive cards in VScode with the plugin.",
+                        "inputs": {
+                            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                            "actions": [
+                                {
+                                    "title": "Submit",
+                                    "type": "Action.Submit"
+                                }
+                            ],
+                            "body": [
+                                {
+                                    "horizontalAlignment": "Left",
+                                    "size": "Medium",
+                                    "text": "Automated Investigation | Incident @{triggerBody()?['object']?['properties']?['incidentNumber']}",
+                                    "type": "TextBlock",
+                                    "weight": "bolder",
+                                    "wrap": true
+                                },
+                                {
+                                    "text": "Hi team, I've initiated an automated investigation for device: @{items('For_each_device')?['HostName']}. Collection of the investigation package has begun. As soon as it's finished, I'll post the download link here. In the meantime you might want to consider taking additional steps:",
+                                    "type": "TextBlock",
+                                    "wrap": true
+                                },
+                                {
+                                    "text": " ",
+                                    "type": "TextBlock",
+                                    "wrap": true
+                                },
+                                {
+                                    "choices": [
+                                        {
+                                            "title": "Run thor-lite scan",
+                                            "value": "runThorLite"
+                                        },
+                                        {
+                                            "title": "Backup all event logs",
+                                            "value": "backupEvents"
+                                        },
+                                        {
+                                            "title": "Capture memory dump",
+                                            "value": "memoryDump"
+                                        }
+                                    ],
+                                    "id": "tasks",
+                                    "isMultiSelect": true,
+                                    "separator": true,
+                                    "style": "expanded",
+                                    "type": "Input.ChoiceSet"
+                                },
+                                {
+                                    "id": "isolation",
+                                    "separator": false,
+                                    "title": "Device isolation",
+                                    "type": "Input.Toggle"
+                                },
+                                {
+                                    "separator": false,
+                                    "text": "_(Device isolation step will be performed last to ensure earlier tasks are completed)_",
+                                    "type": "TextBlock",
+                                    "wrap": true
+                                },
+                                {
+                                    "separator": true,
+                                    "text": " ",
+                                    "type": "TextBlock",
+                                    "wrap": true
+                                }
+                            ],
+                            "type": "AdaptiveCard",
+                            "version": "1.0"
+                        },
+                        "runAfter": {
+                            "Machines_-_Get_single_machine": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Compose"
+                    },
+                    "Create_a_chat": {
+                        "description": "A new Teams chat will be created with the name of the security incident. Via an adaptive card the recipients have the option to ask for additional automated investigation tasks.",
+                        "inputs": {
+                            "body": {
+                                "members": "@{variables('E-mail addresses')}",
+                                "topic": "Automated investigation | Incident @{triggerBody()?['object']?['properties']?['incidentNumber']}"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/beta/chats"
+                        },
+                        "runAfter": {
+                            "Compose_adaptive_card_body": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Isolate_device": {
+                        "actions": {
+                            "Post_message_in_a_chat_-_isolate_device": {
+                                "description": "Let people in Teams chat know that this next investigation job has started.",
+                                "inputs": {
+                                    "body": {
+                                        "messageBody": "Initiating device isolation...",
+                                        "recipient": "@body('Create_a_chat')?['id']"
+                                    },
+                                    "host": {
+                                        "connection": {
+                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                        }
+                                    },
+                                    "method": "post",
+                                    "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                },
+                                "type": "ApiConnection"
+                            },
+                            "Scope_-_isolate_device": {
+                                "actions": {
+                                    "Actions_-_Isolate_machine": {
+                                        "description": "Like the name suggests, this step will initiate device isolation.",
+                                        "inputs": {
+                                            "body": {
+                                                "Comment": "Sentinel Incident: @{triggerBody()?['object']?['properties']?['incidentNumber']}",
+                                                "IsolationType": "Full"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/isolate"
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Post_error_message_in_a_chat_(isolatedevice)": {
+                                        "description": "If for some reason the task would fail to fun, we want to let the people in Teams chat know about this.",
+                                        "inputs": {
+                                            "body": {
+                                                "messageBody": "<p><b><strong style=\"color: rgb(208, 2, 27);\">⚠️ Isolate device | Something went wrong :-(</strong></b></p>",
+                                                "recipient": "@body('Create_a_chat')?['id']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                        },
+                                        "runAfter": {
+                                            "Actions_-_Isolate_machine": [
+                                                "TimedOut",
+                                                "Skipped",
+                                                "Failed"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Post_message_in_a_chat_-_isolate_device_-_success": {
+                                        "description": "Post job results in Teams chat.",
+                                        "inputs": {
+                                            "body": {
+                                                "messageBody": "<p><strong>Device isolation successful!</strong></p>",
+                                                "recipient": "@body('Create_a_chat')?['id']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                        },
+                                        "runAfter": {
+                                            "Actions_-_Isolate_machine": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    }
+                                },
+                                "description": "This is a 'scope' object and purely serves as a way to esthetically groups certain tasks together. It also makes it easier to move around a set of tasks if needed.",
+                                "runAfter": {
+                                    "Post_message_in_a_chat_-_isolate_device": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                "type": "Scope"
+                            }
+                        },
+                        "description": "Run this part only if \"Isolate Device\" was selected in the Adaptive Card. For some reason the result sometimes has a different capitalization on the letter 't' from 'true'.",
+                        "else": {
+                            "actions": {}
+                        },
+                        "expression": {
+                            "or": [
+                                {
+                                    "equals": [
+                                        "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['isolation']",
+                                        "True"
+                                    ]
+                                },
+                                {
+                                    "equals": [
+                                        "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['isolation']",
+                                        true
+                                    ]
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "Run_additional_tasks_if_response_was_given": [
+                                "Succeeded",
+                                "TimedOut",
+                                "Skipped",
+                                "Failed"
+                            ]
+                        },
+                        "type": "If"
+                    },
+                    "Machines_-_Get_single_machine": {
+                        "description": "We need the machine ID from every endpoint based on the device name provided from by the Sentinel incident.",
+                        "inputs": {
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                }
+                            },
+                            "method": "get",
+                            "path": "/api/machines/@{encodeURIComponent(items('For_each_device')?['HostName'])}"
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Post_adaptive_card_and_wait_for_a_response": {
+                        "description": "The adaptive card with questions is posted in chat while the playbook will start with retrieving the investigation package anyway.",
+                        "inputs": {
+                            "body": {
+                                "body": {
+                                    "messageBody": "@{outputs('Compose_adaptive_card_body')}",
+                                    "recipient": {
+                                        "recipient": "@body('Create_a_chat')?['id']"
+                                    },
+                                    "updateMessage": "Ok, I'm on it! 🤖"
+                                },
+                                "notificationUrl": "@{listCallbackUrl()}"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                }
+                            },
+                            "path": "/v1.0/teams/conversation/gatherinput/poster/Flow bot/location/@{encodeURIComponent('Group chat')}/$subscriptions"
+                        },
+                        "runAfter": {
+                            "Create_a_chat": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnectionWebhook"
+                    },
+                    "Run_additional_tasks_if_response_was_given": {
+                        "actions": {
+                            "If_backup_all_event_logs": {
+                                "actions": {
+                                    "Post_message_in_a_chat_-_backup_event_logs": {
+                                        "description": "Let people in Teams chat know that this next investigation job has started.",
+                                        "inputs": {
+                                            "body": {
+                                                "messageBody": "<p>Backing up all event logs...</p>",
+                                                "recipient": "@body('Create_a_chat')?['id']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Scope_-_backup_event_logs": {
+                                        "actions": {
+                                            "Post_error_message_in_a_chat_(backupevents)": {
+                                                "description": "If for some reason the task would fail to fun, we want to let the people in Teams chat know about this.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "messageBody": "<p><b><strong style=\"color: rgb(208, 2, 27);\">⚠️ Backup event logs | Something went wrong :-(</strong></b></p>",
+                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_backup_event_logs": [
+                                                        "TimedOut",
+                                                        "Skipped",
+                                                        "Failed"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Run_live_response_-_backup_event_logs": {
+                                                "description": "Use Defender Live Response to run a custom PowerShell script from the Live Response Library. Make sure this script is uploaded there and is available for the endpoint to run.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "Commands": [
+                                                            {
+                                                                "params": [
+                                                                    {
+                                                                        "key": "ScriptName",
+                                                                        "value": "customInvestigations-BackupEventlog.ps1"
+                                                                    },
+                                                                    {
+                                                                        "key": "Args",
+                                                                        "value": "-baseDirectory @{variables('investigationEvidencePath')}"
+                                                                    }
+                                                                ],
+                                                                "type": "RunScript"
+                                                            }
+                                                        ],
+                                                        "Comment": "Backup all event logs"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/runliveresponse"
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Run_live_response_-_get_backup_event_logs": {
+                                                "description": "The GetFile command  is used for Live Response to be able to retrieve a file. When completed we have a download URL.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "Commands": [
+                                                            {
+                                                                "params": [
+                                                                    {
+                                                                        "key": "Path",
+                                                                        "value": "@{variables('investigationEvidencePath')}\\eventlogs.zip"
+                                                                    }
+                                                                ],
+                                                                "type": "GetFile"
+                                                            }
+                                                        ],
+                                                        "Comment": "Get eventlogs backup"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/runliveresponse"
+                                                },
+                                                "runAfter": {
+                                                    "Until_-_backup_event_logs_is_completed": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Set_variable_-_action_status_-_backup_event_logs": {
+                                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-backupeventlog",
+                                                    "value": "@body('Run_live_response_-_backup_event_logs')?['status']"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_backup_event_logs": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Set_variable_-_action_status_-_get_backup_event_logs": {
+                                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-backupeventlog",
+                                                    "value": "@body('Run_live_response_-_get_backup_event_logs')?['status']"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_get_backup_event_logs": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Until_-_backup_event_logs_is_completed": {
+                                                "actions": {
+                                                    "Condition_-_backup_event_logs": {
+                                                        "actions": {
+                                                            "Set_variable_-_succeeded_-_backup_event_logs": {
+                                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                                "inputs": {
+                                                                    "name": "machineActionStatus-backupeventlog",
+                                                                    "value": "Succeeded"
+                                                                },
+                                                                "type": "SetVariable"
+                                                            }
+                                                        },
+                                                        "description": "Check from the last run status if the job has completed or not.",
+                                                        "else": {
+                                                            "actions": {
+                                                                "Delay_-_backup_event_logs": {
+                                                                    "description": "Delay / wait for 15 seconds before retrieving the machineActionStatus again.",
+                                                                    "inputs": {
+                                                                        "interval": {
+                                                                            "count": 15,
+                                                                            "unit": "Second"
+                                                                        }
+                                                                    },
+                                                                    "type": "Wait"
+                                                                }
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@body('Get_single_machine_action_-_backup_event_logs')?['status']",
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "runAfter": {
+                                                            "Get_single_machine_action_-_backup_event_logs": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "If"
+                                                    },
+                                                    "Get_single_machine_action_-_backup_event_logs": {
+                                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "get",
+                                                            "path": "/api/machineactions/@{encodeURIComponent(body('Run_live_response_-_backup_event_logs')?['id'])}"
+                                                        },
+                                                        "type": "ApiConnection"
+                                                    }
+                                                },
+                                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                                "expression": "@equals(variables('machineActionStatus-backupeventlog'), 'Succeeded')",
+                                                "limit": {
+                                                    "count": 60,
+                                                    "timeout": "PT1H"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_-_action_status_-_backup_event_logs": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            },
+                                            "Until_-_get_backup_event_logs_is_completed": {
+                                                "actions": {
+                                                    "Condition_-_get_backup_event_logs": {
+                                                        "actions": {
+                                                            "HTTP_-_retrieve_blob_URL_-_get_backup_event_logs": {
+                                                                "description": "With the job completed we can now retrieve the download URI to be posted in Teams chat to retrieve the results. Unfortunately we couldn't use built-in connector for this and had to resort to a manual API query.",
+                                                                "inputs": {
+                                                                    "authentication": {
+                                                                        "audience": "https://api.securitycenter.microsoft.com",
+                                                                        "type": "ManagedServiceIdentity"
+                                                                    },
+                                                                    "method": "GET",
+                                                                    "uri": "https://api.securitycenter.microsoft.com/api/machineactions/@{body('Get_single_machine_action_-_get_backup_event_logs')?['id']}/GetLiveResponseResultDownloadLink(index=0)"
+                                                                },
+                                                                "runAfter": {
+                                                                    "Set_variable_-_succeeded_-_get_backup_event_logs": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "Http"
+                                                            },
+                                                            "Post_message_in_a_chat_-_download_to_backup_event_logs": {
+                                                                "description": "Post download link with job results in Teams chat.",
+                                                                "inputs": {
+                                                                    "body": {
+                                                                        "messageBody": "<b>Backup of all event logs completed!</b><br>Download it <a href='@{body('HTTP_-_retrieve_blob_URL_-_get_backup_event_logs')?['value']}'>HERE</a>.",
+                                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                                    },
+                                                                    "host": {
+                                                                        "connection": {
+                                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                        }
+                                                                    },
+                                                                    "method": "post",
+                                                                    "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                                                },
+                                                                "runAfter": {
+                                                                    "HTTP_-_retrieve_blob_URL_-_get_backup_event_logs": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "ApiConnection"
+                                                            },
+                                                            "Set_variable_-_succeeded_-_get_backup_event_logs": {
+                                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                                "inputs": {
+                                                                    "name": "machineActionStatus-backupeventlog",
+                                                                    "value": "Succeeded"
+                                                                },
+                                                                "type": "SetVariable"
+                                                            }
+                                                        },
+                                                        "description": "Check from the last run status if the job has completed or not.",
+                                                        "else": {
+                                                            "actions": {
+                                                                "Delay_-_get_backup_event_logs": {
+                                                                    "description": "Delay / wait for 15 seconds before retrieving the machineActionStatus again.",
+                                                                    "inputs": {
+                                                                        "interval": {
+                                                                            "count": 15,
+                                                                            "unit": "Second"
+                                                                        }
+                                                                    },
+                                                                    "type": "Wait"
+                                                                }
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@body('Get_single_machine_action_-_get_backup_event_logs')?['status']",
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "runAfter": {
+                                                            "Get_single_machine_action_-_get_backup_event_logs": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "If"
+                                                    },
+                                                    "Get_single_machine_action_-_get_backup_event_logs": {
+                                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "get",
+                                                            "path": "/api/machineactions/@{encodeURIComponent(body('Run_live_response_-_get_backup_event_logs')?['id'])}"
+                                                        },
+                                                        "type": "ApiConnection"
+                                                    }
+                                                },
+                                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                                "expression": "@equals(variables('machineActionStatus-backupeventlog'), 'Succeeded')",
+                                                "limit": {
+                                                    "count": 60,
+                                                    "timeout": "PT1H"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_-_action_status_-_get_backup_event_logs": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            }
+                                        },
+                                        "description": "This is a 'scope' object and purely serves as a way to esthetically groups certain tasks together. It also makes it easier to move around a set of tasks if needed.",
+                                        "runAfter": {
+                                            "Post_message_in_a_chat_-_backup_event_logs": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Scope"
+                                    }
+                                },
+                                "description": "Run this part only if \"Backup Events\" was selected in the Adaptive Card.",
+                                "else": {
+                                    "actions": {}
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "contains": [
+                                                "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['tasks']",
+                                                "backupEvents"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "If_capture_memory_dump": {
+                                "actions": {
+                                    "Post_message_in_a_chat_-_memory_dump": {
+                                        "description": "Let people in Teams chat know that this next investigation job has started.",
+                                        "inputs": {
+                                            "body": {
+                                                "messageBody": "Capturing memory dump to local storage...",
+                                                "recipient": "@body('Create_a_chat')?['id']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Scope_-_memory_dump": {
+                                        "actions": {
+                                            "Post_error_message_in_a_chat_(memorydump)": {
+                                                "description": "If for some reason the task would fail to fun, we want to let the people in Teams chat know about this.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "messageBody": "<p><b><strong style=\"color: rgb(208, 2, 27);\">⚠️ Capture memory dump | Something went wrong :-(</strong></b></p>",
+                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_memory_dump": [
+                                                        "TimedOut",
+                                                        "Skipped",
+                                                        "Failed"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Run_live_response_-_memory_dump": {
+                                                "description": "Use Defender Live Response to run a custom PowerShell script from the Live Response Library. Make sure this script is uploaded there and is available for the endpoint to run.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "Commands": [
+                                                            {
+                                                                "params": [
+                                                                    {
+                                                                        "key": "ScriptName",
+                                                                        "value": "customInvestigations-MemoryDump.ps1"
+                                                                    },
+                                                                    {
+                                                                        "key": "Args",
+                                                                        "value": "-baseDirectory @{variables('investigationEvidencePath')}"
+                                                                    }
+                                                                ],
+                                                                "type": "RunScript"
+                                                            }
+                                                        ],
+                                                        "Comment": "Create local memory dump"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/runliveresponse"
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Set_variable_-_action_status_-_memory_dump": {
+                                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-memorydump",
+                                                    "value": "@body('Run_live_response_-_memory_dump')?['status']"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_memory_dump": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Until_-_memory_dump_is_completed": {
+                                                "actions": {
+                                                    "Condition_-_memory_dump": {
+                                                        "actions": {
+                                                            "Post_message_in_a_chat_or_channel": {
+                                                                "description": "Post job results in Teams chat.",
+                                                                "inputs": {
+                                                                    "body": {
+                                                                        "messageBody": "<p><b><strong>Storing memory dump completed!</strong></b><br>You'll be able to find it in @{variables('investigationEvidencePath')} on the disk of the remote endpoint.</p>",
+                                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                                    },
+                                                                    "host": {
+                                                                        "connection": {
+                                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                        }
+                                                                    },
+                                                                    "method": "post",
+                                                                    "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                                                },
+                                                                "runAfter": {
+                                                                    "Set_variable_-_succeeded_-_memory_dump": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "ApiConnection"
+                                                            },
+                                                            "Set_variable_-_succeeded_-_memory_dump": {
+                                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                                "inputs": {
+                                                                    "name": "machineActionStatus-memorydump",
+                                                                    "value": "Succeeded"
+                                                                },
+                                                                "type": "SetVariable"
+                                                            }
+                                                        },
+                                                        "description": "Check from the last run status if the job has completed or not.",
+                                                        "else": {
+                                                            "actions": {
+                                                                "Delay_-_memory_dump": {
+                                                                    "description": "Delay / wait for 15 seconds before retrieving the machineActionStatus again.",
+                                                                    "inputs": {
+                                                                        "interval": {
+                                                                            "count": 15,
+                                                                            "unit": "Second"
+                                                                        }
+                                                                    },
+                                                                    "type": "Wait"
+                                                                }
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@body('Get_single_machine_action_-_memory_dump')?['status']",
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "runAfter": {
+                                                            "Get_single_machine_action_-_memory_dump": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "If"
+                                                    },
+                                                    "Get_single_machine_action_-_memory_dump": {
+                                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "get",
+                                                            "path": "/api/machineactions/@{encodeURIComponent(body('Run_live_response_-_memory_dump')?['id'])}"
+                                                        },
+                                                        "type": "ApiConnection"
+                                                    }
+                                                },
+                                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                                "expression": "@equals(variables('machineActionStatus-memorydump'), 'Succeeded')",
+                                                "limit": {
+                                                    "count": 60,
+                                                    "timeout": "PT1H"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_-_action_status_-_memory_dump": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            }
+                                        },
+                                        "description": "This is a 'scope' object and purely serves as a way to esthetically groups certain tasks together. It also makes it easier to move around a set of tasks if needed.",
+                                        "runAfter": {
+                                            "Post_message_in_a_chat_-_memory_dump": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Scope"
+                                    }
+                                },
+                                "description": "Run this part only if \"Memory Dump\" was selected in the Adaptive Card.",
+                                "else": {
+                                    "actions": {}
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "contains": [
+                                                "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['tasks']",
+                                                "memoryDump"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "If_run_Thor-lite": [
+                                        "Succeeded",
+                                        "TimedOut",
+                                        "Skipped",
+                                        "Failed"
+                                    ]
+                                },
+                                "type": "If"
+                            },
+                            "If_run_Thor-lite": {
+                                "actions": {
+                                    "Post_message_in_a_chat_-_Thor-lite": {
+                                        "description": "Let people in Teams chat know that this next investigation job has started.",
+                                        "inputs": {
+                                            "body": {
+                                                "messageBody": "Starting thor-lite scan...",
+                                                "recipient": "@body('Create_a_chat')?['id']"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['teams']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('Flow bot')}/location/@{encodeURIComponent('Group chat')}"
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Scope_-_Thor-lite": {
+                                        "actions": {
+                                            "Post_error_message_in_a_chat_(thorlite)": {
+                                                "description": "If for some reason the task would fail to fun, we want to let the people in Teams chat know about this.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "messageBody": "<p><b><strong style=\"color: rgb(208, 2, 27);\">⚠️ Run Thor-Lite | Something went wrong :-(</strong></b></p>",
+                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/beta/teams/conversation/message/poster/Flow bot/location/@{encodeURIComponent('Group chat')}"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_Thor-lite": [
+                                                        "TimedOut",
+                                                        "Skipped",
+                                                        "Failed"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Run_live_response_-_Thor-lite": {
+                                                "description": "Use Defender Live Response to run a custom PowerShell script from the Live Response Library. Make sure this script is uploaded there and is available for the endpoint to run.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "Commands": [
+                                                            {
+                                                                "params": [
+                                                                    {
+                                                                        "key": "ScriptName",
+                                                                        "value": "customInvestigations-ThorSeedQuick.ps1"
+                                                                    },
+                                                                    {
+                                                                        "key": "Args",
+                                                                        "value": "-CustomUrl https://thorlite.blob.core.windows.net/win/pack.zip -OutputPath @{variables('investigationEvidencePath')}"
+                                                                    }
+                                                                ],
+                                                                "type": "RunScript"
+                                                            }
+                                                        ],
+                                                        "Comment": "Backup all event logs"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/runliveresponse"
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Run_live_response_-_get_Thor-lite": {
+                                                "description": "The GetFile command  is used for Live Response to be able to retrieve a file. When completed we have a download URL.",
+                                                "inputs": {
+                                                    "body": {
+                                                        "Commands": [
+                                                            {
+                                                                "params": [
+                                                                    {
+                                                                        "key": "Path",
+                                                                        "value": "@{variables('investigationEvidencePath')}\\thor.zip"
+                                                                    }
+                                                                ],
+                                                                "type": "GetFile"
+                                                            }
+                                                        ],
+                                                        "Comment": "Get Thor-lite report"
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "post",
+                                                    "path": "/api/machines/@{encodeURIComponent(body('Machines_-_Get_single_machine')?['id'])}/runliveresponse"
+                                                },
+                                                "runAfter": {
+                                                    "Until_-_Thor-lite_is_completed": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection"
+                                            },
+                                            "Set_variable_-_action_status_-_Thor-lite": {
+                                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-thor",
+                                                    "value": "@body('Run_live_response_-_Thor-lite')?['status']"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_Thor-lite": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Set_variable_-_action_status_-_get_Thor-lite": {
+                                                "description": "The machine action status of the job is kept. This way we can keep track of its status and see when it finishes.",
+                                                "inputs": {
+                                                    "name": "machineActionStatus-thor",
+                                                    "value": "@body('Run_live_response_-_get_Thor-lite')?['status']"
+                                                },
+                                                "runAfter": {
+                                                    "Run_live_response_-_get_Thor-lite": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "SetVariable"
+                                            },
+                                            "Until_-_Thor-lite_is_completed": {
+                                                "actions": {
+                                                    "Condition_-_Thor-lite": {
+                                                        "actions": {
+                                                            "Set_variable_-_succeeded_-_Thor-lite": {
+                                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                                "inputs": {
+                                                                    "name": "machineActionStatus-thor",
+                                                                    "value": "Succeeded"
+                                                                },
+                                                                "type": "SetVariable"
+                                                            }
+                                                        },
+                                                        "description": "Check from the last run status if the job has completed or not.",
+                                                        "else": {
+                                                            "actions": {
+                                                                "Delay_-_Thor-lite": {
+                                                                    "description": "Delay / wait for 15 seconds before retrieving the machineActionStatus again.",
+                                                                    "inputs": {
+                                                                        "interval": {
+                                                                            "count": 15,
+                                                                            "unit": "Second"
+                                                                        }
+                                                                    },
+                                                                    "type": "Wait"
+                                                                }
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@body('Get_single_machine_action_-_Thor-lite')?['status']",
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "runAfter": {
+                                                            "Get_single_machine_action_-_Thor-lite": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "If"
+                                                    },
+                                                    "Get_single_machine_action_-_Thor-lite": {
+                                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "get",
+                                                            "path": "/api/machineactions/@{encodeURIComponent(body('Run_live_response_-_Thor-lite')?['id'])}"
+                                                        },
+                                                        "type": "ApiConnection"
+                                                    }
+                                                },
+                                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                                "expression": "@equals(variables('machineActionStatus-thor'), 'Succeeded')",
+                                                "limit": {
+                                                    "count": 60,
+                                                    "timeout": "PT1H"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_-_action_status_-_Thor-lite": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            },
+                                            "Until_-_get_Thor-lite_is_completed": {
+                                                "actions": {
+                                                    "Condition_-_get_Thor-lite": {
+                                                        "actions": {
+                                                            "HTTP_-_get_Thor-lite_retrieve_blob_URL": {
+                                                                "description": "With the job completed we can now retrieve the download URI to be posted in Teams chat to retrieve the results. Unfortunately we couldn't use built-in connector for this and had to resort to a manual API query.",
+                                                                "inputs": {
+                                                                    "authentication": {
+                                                                        "audience": "https://api.securitycenter.microsoft.com",
+                                                                        "type": "ManagedServiceIdentity"
+                                                                    },
+                                                                    "method": "GET",
+                                                                    "uri": "https://api.securitycenter.microsoft.com/api/machineactions/@{body('Get_single_machine_action_-_get_Thor-lite')?['id']}/GetLiveResponseResultDownloadLink(index=0)"
+                                                                },
+                                                                "runAfter": {
+                                                                    "Set_variable_-_succeeded_-_get_Thor-lite": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "Http"
+                                                            },
+                                                            "Post_message_in_a_chat_-_download_to_Thor-lite": {
+                                                                "description": "Post download link with job results in Teams chat.",
+                                                                "inputs": {
+                                                                    "body": {
+                                                                        "messageBody": "<b>Thor-lite scan is completed!</b><br>Download it <a href='@{body('HTTP_-_get_Thor-lite_retrieve_blob_URL')?['value']}'>HERE</a>.",
+                                                                        "recipient": "@body('Create_a_chat')?['id']"
+                                                                    },
+                                                                    "host": {
+                                                                        "connection": {
+                                                                            "name": "@parameters('$connections')['teams']['connectionId']"
+                                                                        }
+                                                                    },
+                                                                    "method": "post",
+                                                                    "path": "/beta/teams/conversation/message/poster/@{encodeURIComponent('User')}/location/@{encodeURIComponent(body('Post_message_in_a_chat_-_Thor-lite')?['conversationId'])}"
+                                                                },
+                                                                "runAfter": {
+                                                                    "HTTP_-_get_Thor-lite_retrieve_blob_URL": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                },
+                                                                "type": "ApiConnection"
+                                                            },
+                                                            "Set_variable_-_succeeded_-_get_Thor-lite": {
+                                                                "description": "Set the variable to Succeeded so that the Do - UNTIL loop will stop repeating since the job has completed.",
+                                                                "inputs": {
+                                                                    "name": "machineActionStatus-thor",
+                                                                    "value": "Succeeded"
+                                                                },
+                                                                "type": "SetVariable"
+                                                            }
+                                                        },
+                                                        "description": "Check from the last run status if the job has completed or not.",
+                                                        "else": {
+                                                            "actions": {
+                                                                "Delay_-_get_Thor-lite": {
+                                                                    "description": "Delay / wait for 15 seconds before retrieving the machineActionStatus again.",
+                                                                    "inputs": {
+                                                                        "interval": {
+                                                                            "count": 15,
+                                                                            "unit": "Second"
+                                                                        }
+                                                                    },
+                                                                    "type": "Wait"
+                                                                }
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "and": [
+                                                                {
+                                                                    "equals": [
+                                                                        "@body('Get_single_machine_action_-_get_Thor-lite')?['status']",
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "runAfter": {
+                                                            "Get_single_machine_action_-_get_Thor-lite": [
+                                                                "Succeeded"
+                                                            ]
+                                                        },
+                                                        "type": "If"
+                                                    },
+                                                    "Get_single_machine_action_-_get_Thor-lite": {
+                                                        "description": "Retrieve the status of the running job based on its machineActionStatus to check if the job has already finished or not.",
+                                                        "inputs": {
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['wdatp']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "get",
+                                                            "path": "/api/machineactions/@{encodeURIComponent(body('Run_live_response_-_get_Thor-lite')?['id'])}"
+                                                        },
+                                                        "type": "ApiConnection"
+                                                    }
+                                                },
+                                                "description": "This DO - UNTIL loop is to check periodically if the job has finished or not but checking the machineActionStatus with 30 seconds intervals.",
+                                                "expression": "@equals(variables('machineActionStatus-thor'), 'Succeeded')",
+                                                "limit": {
+                                                    "count": 60,
+                                                    "timeout": "PT1H"
+                                                },
+                                                "runAfter": {
+                                                    "Set_variable_-_action_status_-_get_Thor-lite": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Until"
+                                            }
+                                        },
+                                        "description": "This is a 'scope' object and purely serves as a way to esthetically groups certain tasks together. It also makes it easier to move around a set of tasks if needed.",
+                                        "runAfter": {
+                                            "Post_message_in_a_chat_-_Thor-lite": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Scope"
+                                    }
+                                },
+                                "description": "Run this part only if \"Thor-Lite\" was selected in the Adaptive Card.",
+                                "else": {
+                                    "actions": {}
+                                },
+                                "expression": {
+                                    "and": [
+                                        {
+                                            "contains": [
+                                                "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['tasks']",
+                                                "runThorLite"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "runAfter": {
+                                    "If_backup_all_event_logs": [
+                                        "Succeeded",
+                                        "TimedOut",
+                                        "Skipped",
+                                        "Failed"
+                                    ]
+                                },
+                                "type": "If"
+                            }
+                        },
+                        "description": "The output from the Adaptive Card results are processed and here is decided which additional job to run.",
+                        "else": {
+                            "actions": {}
+                        },
+                        "expression": {
+                            "and": [
+                                {
+                                    "not": {
+                                        "equals": [
+                                            "@body('Post_adaptive_card_and_wait_for_a_response')?['data']?['tasks']",
+                                            "@null"
+                                        ]
+                                    }
+                                }
+                            ]
+                        },
+                        "runAfter": {
+                            "Post_adaptive_card_and_wait_for_a_response": [
+                                "Succeeded",
+                                "TimedOut",
+                                "Skipped",
+                                "Failed"
+                            ]
+                        },
+                        "type": "If"
+                    }
+                },
+                "foreach": "@body('Get_hosts_from_entities')?['Hosts']",
+                "runAfter": {
+                    "Initialize_'investigationEvidencePath'_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "concurrency": {
+                        "repetitions": 1
+                    }
+                },
+                "type": "Foreach"
+            },
+            "Get_hosts_from_entities": {
+                "description": "Retrieve all entities with a type 'host' from the related alerts within the incident.",
+                "inputs": {
+                    "body": "@triggerBody()?['object']?['properties']?['relatedEntities']",
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "path": "/entities/host"
+                },
+                "runAfter": {},
+                "type": "ApiConnection"
+            },
+            "Initialize_'investigationEvidencePath'_variable": {
+                "description": "This defines a path used on the local machine to which certain investigation results can be stored. Together in one place. Something like a memory dump cannot be retrieved remotely and should be pull from the physical machine from this folder.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "investigationEvidencePath",
+                            "type": "string",
+                            "value": "@{concat('C:\\windows\\temp\\INVESTIGATIONS\\',triggerBody()?['object']?['properties']?['incidentNumber'],'-',formatDateTime(utcnow(), 'yyyyMMddTHHmmss'))}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_'machineActionStatus-thor'_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_'machineActionStatus-eventlog'_variable": {
+                "description": "When triggering investigation actions on the remote machine, we need to keep track of the progress with the Machine Action Status. Since we have several different investigations which might run in parallel, we need a variable for each.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "machineActionStatus-backupeventlog",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_'machineActionStatus-investigation'_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_'machineActionStatus-investigation'_variable": {
+                "description": "When triggering investigation actions on the remote machine, we need to keep track of the progress with the Machine Action Status. Since we have several different investigations which might run in parallel, we need a variable for each.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "machineActionStatus-investigation",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_recipients_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_'machineActionStatus-memorydump'_variable": {
+                "description": "When triggering investigation actions on the remote machine, we need to keep track of the progress with the Machine Action Status. Since we have several different investigations which might run in parallel, we need a variable for each.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "machineActionStatus-memorydump",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_'machineActionStatus-eventlog'_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_'machineActionStatus-thor'_variable": {
+                "description": "When triggering investigation actions on the remote machine, we need to keep track of the progress with the Machine Action Status. Since we have several different investigations which might run in parallel, we need a variable for each.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "machineActionStatus-thor",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_'machineActionStatus-memorydump'_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_recipients_variable": {
+                "description": "This variable contains the contact details of people who will be invited to the Team chat created by the flow bot. Unfortunately groups aren't supported, so we need to add the users individually.",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "E-mail addresses",
+                            "type": "string",
+                            "value": "analyst@bitdefend.onmicrosoft.com"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Get_hosts_from_entities": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "Microsoft_Sentinel_incident": {
+                "description": "Analysts are able to trigger this playbook from a Sentinel incident or have it triggered automatically from a Sentinel automation rule.",
+                "inputs": {
+                    "body": {
+                        "callback_url": "@{listCallbackUrl()}"
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "path": "/incident-creation"
+                },
+                "type": "ApiConnectionWebhook"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azuresentinel": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/azuresentinel",
+                    "connectionName": "azuresentinel",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    },
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/azuresentinel"
+                },
+                "teams": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/teams",
+                    "connectionName": "teams",
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/teams"
+                },
+                "wdatp": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/wdatp",
+                    "connectionName": "wdatp",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    },
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/wdatp"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,495 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Defender_for_Cloud_incident": {
+                "actions": {
+                    "Add_enriched_tag_to_incident_(subscription)": {
+                        "inputs": {
+                            "body": {
+                                "incidentArmId": "@triggerBody()?['object']?['id']",
+                                "tagsToAdd": {
+                                    "TagsToAdd": [
+                                        {
+                                            "Tag": "Enriched"
+                                        }
+                                    ]
+                                }
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                }
+                            },
+                            "method": "put",
+                            "path": "/Incidents"
+                        },
+                        "runAfter": {
+                            "Add_subscription_tags_in_comment_to_incident": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Add_subscription_tags_in_comment_to_incident": {
+                        "inputs": {
+                            "body": {
+                                "incidentArmId": "@triggerBody()?['object']?['id']",
+                                "message": "<img src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/1200px-Microsoft_Azure.svg.png\" alt=\"Azure logo\" width=\"80\"/><br><p>Automation found the following Azure <strong>subscription</strong> tags:<br>\n@{body('Put_subscription_tags_into_HTML_table')}</p>"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/Incidents/Comment"
+                        },
+                        "runAfter": {
+                            "Put_subscription_tags_into_HTML_table": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
+                    },
+                    "Parse_resource_graph_output_(subscription)": {
+                        "inputs": {
+                            "content": "@body('Retrieve_subscription_tags_by_querying_Resource_Graph')",
+                            "schema": {
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "properties": {
+                                        "properties": {
+                                            "tags": {
+                                                "properties": {
+                                                    "AccountOwner": {
+                                                        "type": "string"
+                                                    },
+                                                    "BusinessUnit": {
+                                                        "type": "string"
+                                                    },
+                                                    "Environment": {
+                                                        "type": "string"
+                                                    },
+                                                    "FrameworkVersion": {
+                                                        "type": "string"
+                                                    },
+                                                    "Owner": {
+                                                        "type": "string"
+                                                    },
+                                                    "SubscriptionPurpose": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "type": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "runAfter": {
+                            "Retrieve_subscription_tags_by_querying_Resource_Graph": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ParseJson"
+                    },
+                    "Put_subscription_tags_into_HTML_table": {
+                        "inputs": {
+                            "format": "HTML",
+                            "from": "@array(body('Parse_resource_graph_output_(subscription)')?['properties']?['tags'])"
+                        },
+                        "runAfter": {
+                            "Parse_resource_graph_output_(subscription)": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Table"
+                    },
+                    "Retrieve_subscription_tags_by_querying_Resource_Graph": {
+                        "inputs": {
+                            "authentication": {
+                                "type": "ManagedServiceIdentity"
+                            },
+                            "headers": {
+                                "Content-Type": "application/json"
+                            },
+                            "method": "GET",
+                            "uri": "https://management.azure.com/@{substring(string(triggerBody()?['object']?['properties']?['relatedAnalyticRuleIds']),3,50)}/providers/Microsoft.Resources/tags/default?api-version=2021-04-01"
+                        },
+                        "runAfter": {},
+                        "type": "Http"
+                    }
+                },
+                "runAfter": {},
+                "type": "Scope"
+            },
+            "For_each_relatedEntities_in_incident": {
+                "actions": {
+                    "Check_entity_kind": {
+                        "cases": {
+                            "Kind_equals_'AzureResource'": {
+                                "actions": {
+                                    "Add_enriched_tag_to_incident_azureresource": {
+                                        "inputs": {
+                                            "body": {
+                                                "incidentArmId": "@triggerBody()?['object']?['id']",
+                                                "tagsToAdd": {
+                                                    "TagsToAdd": [
+                                                        {
+                                                            "Tag": "Enriched"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                }
+                                            },
+                                            "method": "put",
+                                            "path": "/Incidents"
+                                        },
+                                        "runAfter": {
+                                            "Add_resource_tags_in_comment_to_incident_azureresource": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Add_resource_tags_in_comment_to_incident_azureresource": {
+                                        "inputs": {
+                                            "body": {
+                                                "incidentArmId": "@triggerBody()?['object']?['id']",
+                                                "message": "<img src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/1200px-Microsoft_Azure.svg.png\" alt=\"Azure logo\" width=\"80\"/><br><p>Automation found the following Azure <strong>resource</strong> tags:<br>\n<strong>@{items('For_each_relatedEntities_in_incident')?['properties']?['resourceId']}</strong>\n@{body('Put_resource_tags_into_HTML_table_azureresource')}</p>"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/Incidents/Comment"
+                                        },
+                                        "runAfter": {
+                                            "Put_resource_tags_into_HTML_table_azureresource": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Parse_resource_graph_output_azureresource": {
+                                        "inputs": {
+                                            "content": "@body('Retrieve_resource_tags_by_querying_Resource_Graph_azureresource')",
+                                            "schema": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "properties": {
+                                                        "properties": {
+                                                            "tags": {
+                                                                "properties": {
+                                                                    "AccountOwner": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "BusinessUnit": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "Environment": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "FrameworkVersion": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "Owner": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "SubscriptionPurpose": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "User": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "type": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "runAfter": {
+                                            "Retrieve_resource_tags_by_querying_Resource_Graph_azureresource": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ParseJson"
+                                    },
+                                    "Put_resource_tags_into_HTML_table_azureresource": {
+                                        "inputs": {
+                                            "format": "HTML",
+                                            "from": "@array(body('Parse_resource_graph_output_azureresource')?['properties']?['tags'])"
+                                        },
+                                        "runAfter": {
+                                            "Parse_resource_graph_output_azureresource": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Table"
+                                    },
+                                    "Retrieve_resource_tags_by_querying_Resource_Graph_azureresource": {
+                                        "inputs": {
+                                            "authentication": {
+                                                "type": "ManagedServiceIdentity"
+                                            },
+                                            "headers": {
+                                                "Content-Type": "application/json"
+                                            },
+                                            "method": "GET",
+                                            "uri": "https://management.azure.com@{items('For_each_relatedEntities_in_incident')?['properties']?['resourceId']}/providers/Microsoft.Resources/tags/default?api-version=2021-04-01"
+                                        },
+                                        "runAfter": {},
+                                        "type": "Http"
+                                    }
+                                },
+                                "case": "AzureResource"
+                            },
+                            "Kind_equals_'Host'": {
+                                "actions": {
+                                    "Check_if_azureId_has_value": {
+                                        "actions": {},
+                                        "else": {
+                                            "actions": {
+                                                "Add_enriched_tag_to_incident_host": {
+                                                    "inputs": {
+                                                        "body": {
+                                                            "incidentArmId": "@triggerBody()?['object']?['id']",
+                                                            "tagsToAdd": {
+                                                                "TagsToAdd": [
+                                                                    {
+                                                                        "Tag": "Enriched"
+                                                                    }
+                                                                ]
+                                                            }
+                                                        },
+                                                        "host": {
+                                                            "connection": {
+                                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                            }
+                                                        },
+                                                        "method": "put",
+                                                        "path": "/Incidents"
+                                                    },
+                                                    "runAfter": {
+                                                        "Add_resource_tags_in_comment_to_incident_host": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "ApiConnection"
+                                                },
+                                                "Add_resource_tags_in_comment_to_incident_host": {
+                                                    "inputs": {
+                                                        "body": {
+                                                            "incidentArmId": "@triggerBody()?['object']?['id']",
+                                                            "message": "<img src=\"https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/1200px-Microsoft_Azure.svg.png\" alt=\"Azure logo\" width=\"80\"/><br><p>Automation found the following Azure <strong>resource</strong> tags:<br>\n<strong>@{items('For_each_relatedEntities_in_incident')?['properties']?['azureID']}</strong>\n@{body('Put_resource_tags_into_HTML_table_host')}</p>"
+                                                        },
+                                                        "host": {
+                                                            "connection": {
+                                                                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                                            }
+                                                        },
+                                                        "method": "post",
+                                                        "path": "/Incidents/Comment"
+                                                    },
+                                                    "runAfter": {
+                                                        "Put_resource_tags_into_HTML_table_host": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "ApiConnection"
+                                                },
+                                                "Parse_resource_graph_output_host": {
+                                                    "inputs": {
+                                                        "content": "@body('Retrieve_resource_tags_by_querying_Resource_Graph_host')",
+                                                        "schema": {
+                                                            "properties": {
+                                                                "id": {
+                                                                    "type": "string"
+                                                                },
+                                                                "name": {
+                                                                    "type": "string"
+                                                                },
+                                                                "properties": {
+                                                                    "properties": {
+                                                                        "tags": {
+                                                                            "properties": {
+                                                                                "AccountOwner": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "BusinessUnit": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "Environment": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "FrameworkVersion": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "Owner": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "SubscriptionPurpose": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "User": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            },
+                                                                            "type": "object"
+                                                                        }
+                                                                    },
+                                                                    "type": "object"
+                                                                },
+                                                                "type": {
+                                                                    "type": "string"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "runAfter": {
+                                                        "Retrieve_resource_tags_by_querying_Resource_Graph_host": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "ParseJson"
+                                                },
+                                                "Put_resource_tags_into_HTML_table_host": {
+                                                    "inputs": {
+                                                        "format": "HTML",
+                                                        "from": "@array(body('Parse_resource_graph_output_host')?['properties']?['tags'])"
+                                                    },
+                                                    "runAfter": {
+                                                        "Parse_resource_graph_output_host": [
+                                                            "Succeeded"
+                                                        ]
+                                                    },
+                                                    "type": "Table"
+                                                },
+                                                "Retrieve_resource_tags_by_querying_Resource_Graph_host": {
+                                                    "inputs": {
+                                                        "authentication": {
+                                                            "type": "ManagedServiceIdentity"
+                                                        },
+                                                        "headers": {
+                                                            "Content-Type": "application/json"
+                                                        },
+                                                        "method": "GET",
+                                                        "uri": "https://management.azure.com@{items('For_each_relatedEntities_in_incident')?['properties']?['azureID']}/providers/Microsoft.Resources/tags/default?api-version=2021-04-01"
+                                                    },
+                                                    "runAfter": {},
+                                                    "type": "Http"
+                                                }
+                                            }
+                                        },
+                                        "expression": {
+                                            "and": [
+                                                {
+                                                    "not": {
+                                                        "startsWith": [
+                                                            "@{items('For_each_relatedEntities_in_incident')?['properties']?['azureID']}",
+                                                            "/subscriptions/"
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "runAfter": {},
+                                        "type": "If"
+                                    }
+                                },
+                                "case": "Host"
+                            }
+                        },
+                        "default": {
+                            "actions": {}
+                        },
+                        "expression": "@items('For_each_relatedEntities_in_incident')?['kind']",
+                        "runAfter": {},
+                        "type": "Switch"
+                    }
+                },
+                "foreach": "@triggerBody()?['object']?['properties']?['relatedEntities']",
+                "runAfter": {
+                    "Defender_for_Cloud_incident": [
+                        "Succeeded",
+                        "TimedOut",
+                        "Skipped",
+                        "Failed"
+                    ]
+                },
+                "type": "Foreach"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "Microsoft_Sentinel_incident": {
+                "inputs": {
+                    "body": {
+                        "callback_url": "@{listCallbackUrl()}"
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                        }
+                    },
+                    "path": "/incident-creation"
+                },
+                "type": "ApiConnectionWebhook"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "azuresentinel": {
+                    "connectionId": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/resourceGroups/rg-automation-01/providers/Microsoft.Web/connections/azuresentinel",
+                    "connectionName": "azuresentinel",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    },
+                    "id": "/subscriptions/< PLACE YOUR SUBSCRIPTION ID HERE >/providers/Microsoft.Web/locations/westus3/managedApis/azuresentinel"
+                }
+            }
+        }
+    }
+}
