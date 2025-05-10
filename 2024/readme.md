@@ -1,8 +1,8 @@
-![Cover](.images/2025_cover.jpg)
+![Cover](/2024/.images/2024_cover.jpeg)
 
-_Discover how to unlock the full potential of Microsoft Sentinel without breaking the bank!
-This session dives into practical tips and field-tested strategies to optimize your Sentinel setup. Learn how to start leveraging Sentinel for free, make informed architectural decisions, and keep your costs under control with smart KQL queries and custom alerts. Explore techniques to monitor performance, troubleshoot ingestion issues,_
-_Whether you're new to Sentinel or looking to refine your setup, this session has something for everyone._
+_Say goodbye to secrets and maintaining key rotation mechanisms.
+Join me as we explore the power of Azure Managed Identities to improve the security posture for your Logic Apps and Sentinel playbooks.
+Learn practical insights about overcoming limitations, integrating Managed Identities as well as real-world examples and tips for integrating these into your Infrastructure-as-Code deployments._
 
 ### Download my slidedeck below!
 
