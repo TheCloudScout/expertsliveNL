@@ -9,3 +9,9 @@ _Whether you're new to Sentinel or looking to refine your setup, this session ha
 [<img src=".images//pdf.png" alt="drawing" height="150"/>](https://1drv.ms/b/s!AmKS27jR06WthuouwfNhQyh8aoHh3Q?e=2MynFW)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<img src=".images//pptx.png" alt="drawing" height="150"/>](https://1drv.ms/p/s!AmKS27jR06WthugDFoTxF65M2e_mKg?e=h385f7)
 
 [**PDF**](https://1drv.ms/b/s!AmKS27jR06WthuouwfNhQyh8aoHh3Q?e=2MynFW)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[**PPTx**](https://1drv.ms/p/s!AmKS27jR06WthugDFoTxF65M2e_mKg?e=h385f7)
+
+### Follow me and check out my content!
+
+[<img src=".images//linkedin.png" alt="drawing" height="150"/>](https://www.linkedin.com/in/koos-goossens/)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<img src=".images//podcast.png" alt="drawing" height="150"/>](https://df3ndr.io)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<img src=".images//blog.png" alt="drawing" height="150"/>](https://aka.ms/koos)
+
+[**LinkedIn**](https://www.linkedin.com/in/koos-goossens/)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[**Podcast**](https://df3ndr.io)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[**Blog**](https://aka.ms/koos)
