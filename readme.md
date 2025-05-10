@@ -6,9 +6,9 @@ _Whether you're new to Sentinel or looking to refine your setup, this session ha
 
 ### Download my slidedeck below!
 
-[<img src=".images//pdf.png" alt="drawing" height="150"/>](https://1drv.ms/b/s!AmKS27jR06WthuouwfNhQyh8aoHh3Q?e=2MynFW)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<img src=".images//pptx.png" alt="drawing" height="150"/>](https://1drv.ms/p/s!AmKS27jR06WthugDFoTxF65M2e_mKg?e=h385f7)
+[<img src=".images//pdf.png" alt="drawing" height="150"/>](https://1drv.ms/b/c/ada5d3d1b8db9262/EXsl1OgDtWZFl2KDVonzH1UBSglQvem8veyWXAiVVp3BEQ?e=T9KKcp)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[<img src=".images//pptx.png" alt="drawing" height="150"/>](https://1drv.ms/p/c/ada5d3d1b8db9262/EVMctHtzlX5PoS42dRHoOO0BfFy_Dsql-_YdaMR78GnGbQ?e=ooHgMO)
 
-[**PDF**](https://1drv.ms/b/s!AmKS27jR06WthuouwfNhQyh8aoHh3Q?e=2MynFW)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[**PPTx**](https://1drv.ms/p/s!AmKS27jR06WthugDFoTxF65M2e_mKg?e=h385f7)
+[**PDF**](https://1drv.ms/b/c/ada5d3d1b8db9262/EXsl1OgDtWZFl2KDVonzH1UBSglQvem8veyWXAiVVp3BEQ?e=T9KKcp)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[**PPTx**](https://1drv.ms/p/c/ada5d3d1b8db9262/EVMctHtzlX5PoS42dRHoOO0BfFy_Dsql-_YdaMR78GnGbQ?e=ooHgMO)
 
 ### Follow me and check out my content!
 
