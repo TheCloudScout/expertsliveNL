@@ -103,7 +103,8 @@ AADNonInteractiveUserSignInLogs
 | sort by series_stats_ColumnSizeBytes_avg
 ```
 
-That an average of 13,6 KB per row. = x 1.667.412 records = 22 GB per day!!
+That an average of 13,6 KB per row. = x 1.667.412 records = 22 GB per two days!!
+Thats 330GB p/m = € 1700,- p/m
 
 ## Another incident with a different customer showed a huge sudden dip in usage
 
